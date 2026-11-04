@@ -16,6 +16,7 @@ Usage: bash scripts/dagor-macos.sh <command>
   source   Initialize the Dagor Engine git submodule (no large release assets)
   tools    [macOS only] Download and extract prebuilt Dagor toolkit (~213 MB)
   viewer   [macOS only] Download/extract East District native demo (~2.33 GB)
+  open     [macOS only] Open an installed East District .app bundle
   help     Show this message
 
 Only the source submodule is stored in Git; prebuilt archives are never
@@ -84,9 +85,9 @@ status() {
   else
     echo "Source not initialized. Run: bash scripts/dagor-macos.sh source"
   fi
-  if [[ -d "$ENGINE/samples/dngSceneViewer/game" ]]; then
+  if [[ -d "$ENGINE/samples/dngSceneViewer/viewer" ]]; then
     echo "East District sample game directory found:"
-    find "$ENGINE/samples/dngSceneViewer/game" -maxdepth 3 -type f \( -iname '*viewer*' -o -iname '*scene*' \) -print | head -25 || true
+    find "$ENGINE/samples/dngSceneViewer/viewer" -maxdepth 7 -type d -name 'DngSceneViewer-*.app' -print | head -12 || true
   else
     echo "East District sample not installed. Optional: bash scripts/dagor-macos.sh viewer"
   fi
@@ -106,6 +107,13 @@ case "${1:-help}" in
     source_engine
     download_extract "east_district-dagor-prebuilt.tar.gz" "2.33 GB"
     status
+    ;;
+  open)
+    require_macos
+    app="$(find "$ENGINE/samples/dngSceneViewer/viewer" -maxdepth 9 -type d -name 'DngSceneViewer-*.app' -print -quit 2>/dev/null || true)"
+    [[ -n "$app" ]] || { echo "No macOS viewer app found. Run: bash scripts/dagor-macos.sh viewer" >&2; exit 1; }
+    echo "Opening official demo: $app"
+    open "$app"
     ;;
   *) usage; exit 2 ;;
 esac

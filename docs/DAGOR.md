@@ -31,6 +31,8 @@ bash scripts/dagor-macos.sh viewer
 
 The downloads come from [Gaijin's official release](https://github.com/GaijinEntertainment/DagorEngine/releases/tag/dagor_2026_08_01), from `dagorenginedata.cdn.gaijin.net`. Downloading prebuilt executables is opt-in; the script verifies that the archive paths do not escape the extraction directory, but no published cryptographic checksums have been independently verified. Review release details before running binaries. On macOS, Gatekeeper may require approving trusted binaries.
 
+After installing the East District demo, `bash scripts/dagor-macos.sh status` searches for the native macOS app. If an app bundle is present, `bash scripts/dagor-macos.sh open` opens it explicitly. The app's actual startup path and runtime dependencies must be verified on a Mac.
+
 The upstream documentation explains building with `python3 build_all.py project:dngSceneViewer code shaders`, after acquiring the necessary tools and source assets. Building it is **substantially more involved** than running our existing web prototype.
 
 The official East District demo is not a gunfire simulator and has no Aero Fighter event bridge. We do not imply it can receive `POST /api/event` at this stage. This is a source/dependency and development-environment integration, **not** a completed renderer swap.
