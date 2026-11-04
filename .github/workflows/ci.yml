@@ -1,15 +1,20 @@
-name: CI
+name: Native scene and API checks
 on:
   push:
     branches: [main]
   pull_request:
 jobs:
-  test:
+  logic:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: npm run check
-      - run: npm test
+      - name: Python API and patcher tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Compile and exercise C++ scene logic (engine-independent)
+        run: |
+          c++ -std=c++17 -Wall -Wextra -pedantic -Werror -O2 tests/test_scene.cpp -o /tmp/aero-scene-tests
+          /tmp/aero-scene-tests
+      - name: Syntax checks for Mac build scripts and Python
+        run: |
+          bash -n scripts/build-macos.sh scripts/run-macos.sh scripts/dagor-macos.sh
+          python3 -m py_compile scripts/prepare_dagor.py native/api_server.py

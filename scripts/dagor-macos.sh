@@ -8,6 +8,7 @@ ENGINE="$ROOT/engine/dagor"
 CACHE="$ROOT/.cache/dagor"
 REV="0ebc89d5d795f3f96324843abf72c5ca7b8555cf"
 CDN="https://dagorenginedata.cdn.gaijin.net/rel-$REV"
+BASE_CDN="https://dagorenginedata.cdn.gaijin.net/head-2026.08.01"
 
 usage() {
   cat <<'HELP'
@@ -15,6 +16,7 @@ Usage: bash scripts/dagor-macos.sh <command>
   status   Show pinned engine version and available sample files
   source   Initialize the Dagor Engine git submodule (no large release assets)
   tools    [macOS only] Download and extract prebuilt Dagor toolkit (~213 MB)
+  base     [macOS only] Download mandatory tool/sample source assets (~229 MB)
   viewer   [macOS only] Download/extract East District native demo (~2.33 GB)
   open     [macOS only] Open an installed East District .app bundle
   help     Show this message
@@ -78,6 +80,33 @@ download_extract() {
   echo "Extracted $filename. The external demo is not connected to Aero Fighter events yet."
 }
 
+find_7z() {
+  local cmd
+  for cmd in 7zz 7z 7za; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      echo "$cmd"
+      return
+    fi
+  done
+  echo "Install sevenzip (for example: brew install sevenzip)." >&2
+  return 1
+}
+
+download_base() {
+  require_macos
+  source_engine
+  local sevenzip
+  sevenzip="$(find_7z)"
+  mkdir -p "$CACHE"
+  for item in tools-base.7z samples-base.7z; do
+    local archive="$CACHE/$item"
+    echo "Downloading official Dagor source assets: $item"
+    curl --fail --location --retry 3 --continue-at - --output "$archive" "$BASE_CDN/$item"
+    # Archive contents are upstream binary assets. Review the publisher before use.
+    ( cd "$ENGINE" && "$sevenzip" x -y "$archive" )
+  done
+}
+
 status() {
   echo "Dagor pinned release: dagor_2026_08_01 ($REV)"
   if [[ -d "$ENGINE/.git" || -f "$ENGINE/.git" ]]; then
@@ -97,6 +126,9 @@ case "${1:-help}" in
   help|-h|--help) usage ;;
   status) status ;;
   source) source_engine ;;
+  base)
+    download_base
+    ;;
   tools)
     require_macos
     source_engine

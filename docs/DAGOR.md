@@ -1,48 +1,50 @@
-# Dagor Engine (optional native renderer path)
+# Dagor native scene: implementation details
 
-Aero Fighter currently renders its **running** watchtower visualization with Three.js in the browser. The Dagor Engine dependency is **pinned as a Git submodule**, not imported as a JavaScript package or silently substituted for Three.js.
+Engine: [GaijinEntertainment/DagorEngine](https://github.com/GaijinEntertainment/DagorEngine), pinned commit `0ebc89d5d795f3f96324843abf72c5ca7b8555cf` from `dagor_2026_08_01`. This is BSD-3-Clause-licensed engine technology, not proprietary War Thunder gameplay or models. The final scene's fidelity depends on original assets and effects not supplied here.
 
-## Why Dagor?
+## Integration strategy
 
-[Dagor Engine](https://github.com/GaijinEntertainment/DagorEngine) is the open-source engine technology used by War Thunder. This **does not** include War Thunder's proprietary maps, aircraft, vehicle models, effects, or gameplay source. A comparable visual scene would need to be authored and ported independently. The source uses BSD-3-Clause; various vendored components have their own notices and licenses.
+Dagor's documented `samples/skiesSample` is used as the native host because it already supports Metal on macOS and contains atmospheric scattering/cloud rendering. `scripts/prepare_dagor.py` copies our two headers into the sample and adds five targeted hooks to `test_app.cpp`:
 
-Version: [dagor_2026_08_01](https://github.com/GaijinEntertainment/DagorEngine/releases/tag/dagor_2026_08_01), commit `0ebc89d5d795f3f96324843abf72c5ca7b8555cf`.
+1. include `aero_fighter_overlay.h`;
+2. update the C++ scene and read the latest API signal from `actScene`;
+3. set approximate sun zenith/azimuth from the computer's civil time before `setDirToSun`;
+4. render camera-relative 3D scene geometry using Dagor's native debug line/triangle primitives after the backbuffer is rebound;
+5. hide the upstream sample's diagnostic debug UI.
 
-## Setup on macOS
+The patch is idempotent and fails if the expected upstream code structure changes. It **modifies the working copy of the pinned Git submodule**, leaving the commit itself untouched. The original `test_app.cpp` is backed up as `test_app.aero-original.cpp.txt`.
 
-```bash
-git clone https://github.com/arpesterev/aero-fighter.git
-cd aero-fighter
-bash scripts/dagor-macos.sh source
-bash scripts/dagor-macos.sh status
-```
+The current renderer deliberately uses simple shapes and glowing tracer lines in **3D perspective**. It is an early lighting/composition prototype, not finished photorealistic materials, VFX, or models. The native macOS build and GPU output have not been independently verified in this environment.
 
-The engine source is stored separately in `engine/dagor`. The submodule avoids copying the massive engine sources into Aero Fighter's own Git history.
+## Download sources and build
 
-**Optional** official prebuilt assets:
+Official release [dagor_2026_08_01](https://github.com/GaijinEntertainment/DagorEngine/releases/tag/dagor_2026_08_01) documents:
+- prebuilt macOS tools (x86_64 and arm64), `tools-prebuilt-macOS.tar.gz` (~213 MB)
+- mandatory base binary files `tools-base.7z` (~26 MB)
+- sample base binary resources `samples-base.7z` (~203 MB)
 
-```bash
-# macOS developer toolkit, compressed 213 MB
-bash scripts/dagor-macos.sh tools
+`scripts/build-macos.sh --install` downloads these from Gaijin's CDN using the version pinned in `scripts/dagor-macos.sh`. A local `7zz` / `7z` installation is necessary to extract .7z. The download is explicit; no binaries are automatically downloaded via Git checkout or Python API startup.
 
-# East District scene viewer, compressed 2.33 GB, requires additional space
-bash scripts/dagor-macos.sh viewer
-```
+Building from source is intended to run:
+`python3 build_all.py project:skiesSample code shaders assets`
+from the Dagor checkout. This is upstream's documented build mechanism. Some versions of external toolchains may require additional local configuration. CI has no macOS runner in the current project, so a real Mac build is still a verification gate.
 
-The downloads come from [Gaijin's official release](https://github.com/GaijinEntertainment/DagorEngine/releases/tag/dagor_2026_08_01), from `dagorenginedata.cdn.gaijin.net`. Downloading prebuilt executables is opt-in; the script verifies that the archive paths do not escape the extraction directory, but no published cryptographic checksums have been independently verified. Review release details before running binaries. On macOS, Gatekeeper may require approving trusted binaries.
+## Persistent event contract
 
-After installing the East District demo, `bash scripts/dagor-macos.sh status` searches for the native macOS app. If an app bundle is present, `bash scripts/dagor-macos.sh open` opens it explicitly. The app's actual startup path and runtime dependencies must be verified on a Mac.
+`POST /api/event` on `127.0.0.1:8011` validates symbolic event type and target count, then atomically saves a signal record. No real location, bearing, trajectory, weapon control, or external military data is involved.
 
-The upstream documentation explains building with `python3 build_all.py project:dngSceneViewer code shaders`, after acquiring the necessary tools and source assets. Building it is **substantially more involved** than running our existing web prototype.
+`AERO1 <sequence> <mode> <targets>`
 
-The official East District demo is not a gunfire simulator and has no Aero Fighter event bridge. We do not imply it can receive `POST /api/event` at this stage. This is a source/dependency and development-environment integration, **not** a completed renderer swap.
+The native C++ scene polls the file in `AERO_FIGHTER_STATE_FILE`. Only a strictly newer sequence updates the scene. No timeouts/target events trigger `clear`. Contact markers recycle and gun effects continue until a newer external `clear` arrives. After a restart, the last record is loaded again. HTTP GET `/api/state` reports the active mode.
 
-## Actual port milestones
+## Validation
 
-1. Verify the pinned macOS build and scene viewer on the developer's physical Mac, including Apple Silicon/Intel compatibility.
-2. Author the wide sky, low horizon, firing positions, sky contacts, tracer streaks, muzzle flashes, and atmospheric lighting in a Dagor-native scene, using original or properly licensed assets.
-3. Add a native HTTP/SSE or localhost bridge consuming Aero Fighter's symbolic `incoming`, `engage`, `alert` and **externally supplied** `clear` events.
-4. Keep the PVO scene active indefinitely until the external `clear` event. Reconnect and recover state after restarting the viewer.
-5. Replace the Three.js visualizer only when the Dagor scene, bridge, and macOS display behavior have been verified.
+`python3 -m unittest discover -s tests -p 'test_*.py'`
 
-For now run the existing Aero Fighter experience with `npm start` independently of the Dagor submodule.
+`c++ -std=c++17 -Wall -Wextra -pedantic -Werror tests/test_scene.cpp -o /tmp/aero-scene-tests && /tmp/aero-scene-tests`
+
+The small tests cover indefinite engagement, external clear semantics, idempotent patching, API validation and durable state. They don't prove rendering quality or sample compatibility.
+
+## Remaining visual development
+
+After a real Dagor build is running, replace the diagnostic geometry with purpose-built atmospheric base models, custom emissive materials, muzzle flashes with light spill, smoke and accurate camera/monitor framing. Add a small native radar UI and optional, volume-limited siren only after opt-in. Keep the strict external-clear contract throughout.

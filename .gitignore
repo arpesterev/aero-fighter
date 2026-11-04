@@ -1,8 +1,8 @@
 .DS_Store
-node_modules/
-.env
-*.log
-coverage/
 .cache/
-.aero-state.json
-.aero-state.json.tmp
+.runtime/
+__pycache__/
+*.pyc
+*.log
+*.tmp
+.env
