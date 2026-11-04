@@ -1,6 +1,6 @@
 # AERO FIGHTER / WATCHTOWER
 
-Permanent **3D observation-tower scene** for a second Mac display. Peaceful sky is the default. When a local API event arrives, the radar marks threats, automatic launchers fire fictional cinematic interceptors, smoke/explosions play, and the scene returns to idle. The camera and scene **never disappear**.
+Permanent **3D observation-tower scene** for a second Mac display. Peaceful sky is the default. When a local API event arrives, the radar marks threats, automatic launchers fire fictional cinematic interceptors, smoke/explosions play, and the visualization remains active until an explicit external `clear` event arrives. The camera and scene **never disappear**.
 
 Unlike CIWS Command, this is a perspective 3D environment, not a flat 2D game plane: tower balcony, moving radar, modelled base, hangars, multiple launchers, terrain, clouds and projectiles are separate 3D objects. All visuals are procedural and **stylized, not photorealistic**.
 
@@ -30,7 +30,18 @@ curl -X POST http://127.0.0.1:8011/api/event \
 
 Additional types: `alert` shows radar contacts without launching; `engage` starts interception faster; `clear` resets to quiet skies. Fields: `count` integer 1–6, `severity` integer 1–3 (currently reserved for future visual presets), `siren` boolean. Defaults are 3, 2 and false. User must separately opt in to siren within the browser. Requests return 202 for accepted events and 400 for invalid values. Use `GET /api/state` for the latest event and `GET /api/events` for SSE.
 
-Only one cinematic sequence plays at once. A new event replaces the prior scenario; otherwise the scene returns automatically to idle after intercept and cooldown. No score, wave system or manual aiming.
+Only one external alert mode is active at once. When the initial visible targets disappear, synthetic contacts and effects loop until the **external `clear` event** arrives. No timer, successful intercept or scene update automatically clears the alert. The localhost server saves the latest event to `.aero-state.json` (gitignored), and the browser restores it on reload/reconnect. No score, wave system or manual aiming.
+
+## Optional native Dagor Engine renderer
+
+The [Dagor Engine](https://github.com/GaijinEntertainment/DagorEngine) source is pinned as a separate Git submodule at `engine/dagor` (release `dagor_2026_08_01`). Official macOS tools and the East District demo are available as opt-in downloads. **Dagor does not yet render Aero Fighter's live API-driven scene.** The current working visualization still uses Three.js until a native scene and API bridge are implemented.
+
+See [docs/DAGOR.md](docs/DAGOR.md) for commands, release sizes, licenses and port milestones.
+
+```bash
+bash scripts/dagor-macos.sh source
+bash scripts/dagor-macos.sh status
+```
 
 ## Development and verification
 
@@ -41,7 +52,7 @@ npm run check
 
 Source layout:
 - `js/world.js`: actual 3D perspective scene, sky and projectile VFX
-- `js/controller.js`: idle, alert, engaging and cooldown states
+- `js/controller.js`: idle, persistent alert and looping engaging states (external clear only)
 - `js/radar.js`: decorative radar display
 - `js/daylight.js`: local civil clock palette
 - `js/audio.js`: opt-in low-volume siren with rate limiting

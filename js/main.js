@@ -10,7 +10,7 @@ try{world=new World(el('world'));}catch(err){console.error('WebGL failed',err);e
 const radar=new Radar(el('radar'));
 const controller=new SceneController(world,el('activity-log'));
 const siren=new Siren();
-let lastEventId=null;
+let lastEventId=0;
 let connected=false;
 
 async function publish(input){
@@ -20,14 +20,26 @@ async function publish(input){
   }catch(err){controller.note('API недоступен. Локальная демонстрация',true);handleEvent(input);}
 }
 function handleEvent(event){
-  if(event.id!==undefined){if(lastEventId===event.id)return;lastEventId=event.id;}
+  if(event.id!==undefined){
+    // Do not allow a delayed /api/state response to roll back a newer SSE event.
+    if(!Number.isSafeInteger(event.id)||event.id<=lastEventId)return;
+    lastEventId=event.id;
+  }
   try{
     const valid=controller.trigger(event);
     if(valid.siren)siren.play();
   }catch(error){controller.note('Неизвестное событие отклонено',true);console.warn(error);}
 }
+async function restoreLastEvent(){
+  try{
+    const response=await fetch('/api/state',{cache:'no-store'});
+    if(!response.ok)throw new Error('Unable to restore event state');
+    const state=await response.json();
+    if(state.lastEvent)handleEvent(state.lastEvent);
+  }catch(error){console.warn('State recovery failed',error);controller.note('Восстановление состояния недоступно',true);}
+}
 const stream=new EventSource('/api/events');
-stream.onopen=()=>{connected=true;controller.note('Связь с локальным API установлена');};
+stream.onopen=()=>{connected=true;controller.note('Связь с локальным API установлена');void restoreLastEvent();};
 stream.onmessage=evt=>{try{handleEvent(JSON.parse(evt.data));}catch(error){console.warn('Bad event',error);}};
 stream.onerror=()=>{connected=false;};
 

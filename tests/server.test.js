@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {once} from 'node:events';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {createAppServer} from '../server.js';
-async function withServer(fn){
-  const server=createAppServer();server.listen(0,'127.0.0.1');await once(server,'listening');
+async function withServer(fn,options={}){
+  const server=createAppServer(options);server.listen(0,'127.0.0.1');await once(server,'listening');
   const url=`http://127.0.0.1:${server.address().port}`;
   try{await fn(url);}finally{server.closeAllConnections?.();server.close();await once(server,'close');}
 }
@@ -38,3 +41,30 @@ test('SSE streams published event',async()=>withServer(async base=>{
   assert.match(text,/"type":"alert"/);
   controller.abort();reader.cancel().catch(()=>{});
 }));
+
+test('an active event survives server restart until the externally sent clear',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'aero-fighter-test-'));
+  const stateFile=join(dir,'state.json');
+  try{
+    await withServer(async base=>{
+      const res=await fetch(base+'/api/event',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'engage',count:3})});
+      assert.equal(res.status,202);
+      const state=await (await fetch(base+'/api/state')).json();
+      assert.equal(state.active,true);
+    },{stateFile});
+    const persisted=JSON.parse(await readFile(stateFile,'utf8'));
+    assert.equal(persisted.lastEvent.type,'engage');
+    await withServer(async base=>{
+      const state=await (await fetch(base+'/api/state')).json();
+      assert.equal(state.active,true);
+      assert.equal(state.lastEvent.type,'engage');
+      const res=await fetch(base+'/api/event',{method:'POST',headers:{'content-type':'application/json'},body:'{"type":"clear"}'});
+      assert.equal(res.status,202);
+    },{stateFile});
+    await withServer(async base=>{
+      const state=await (await fetch(base+'/api/state')).json();
+      assert.equal(state.active,false);
+      assert.equal(state.lastEvent.type,'clear');
+    },{stateFile});
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
