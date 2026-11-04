@@ -1,27 +1,69 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>CIWS Command</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Resolve bare "three" + addon imports to the locally vendored copy. -->
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "./vendor/three/three.module.js",
-      "three/addons/": "./vendor/three/addons/"
-    }
-  }
-  </script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071c2b">
+  <meta name="description" content="Aero Fighter. Постоянная 3D-сцена наблюдательной башни и кинематографическая симуляция перехватов по API-событиям.">
+  <title>AERO FIGHTER / WATCHTOWER</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js"}}</script>
 </head>
 <body>
-  <!-- WebGL scene (3D world) underneath, 2D HUD overlay on top. -->
-  <canvas id="scene"></canvas>
-  <canvas id="hud"></canvas>
-  <a id="credit" href="https://github.com/andrewmunn/ciws-command" target="_blank" rel="noopener">
-    Created by Andrew Munn
-  </a>
-  <script type="module" src="js/main.js"></script>
+  <canvas id="world" aria-label="Трёхмерная сцена наблюдательной башни"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="identity">
+      <div class="mark"><span></span><span></span><span></span></div>
+      <div>
+        <strong>AERO<span> / </span>FIGHTER</strong>
+        <small>WATCHTOWER • NORTH SECTOR</small>
+      </div>
+    </div>
+    <div class="top-status">
+      <span class="signal" id="signal"></span>
+      <span id="state-title">ВОЗДУШНОЕ ПРОСТРАНСТВО ЧИСТО</span>
+      <span class="clock" id="clock">--:--:--</span>
+    </div>
+  </header>
+  <main class="overlay" aria-label="Панель наблюдательного поста">
+    <section class="side-info">
+      <p class="eyebrow">OBSERVATION DECK <span class="faint">// 01</span></p>
+      <h1 id="scene-title">Мирное небо</h1>
+      <p class="description" id="scene-description">Радар ведёт обзор сектора. Системы охраны воздушного пространства находятся в режиме дежурства.</p>
+      <div class="telemetry">
+        <div><span>СИСТЕМА</span><b id="phase-value">ДЕЖУРСТВО</b></div>
+        <div><span>ЦЕЛИ</span><b id="threat-count">00</b></div>
+        <div><span>ВРЕМЯ СУТОК</span><b id="time-value">--</b></div>
+        <div><span>СВЯЗЬ С API</span><b id="connection-value">ПОДКЛЮЧЕНИЕ</b></div>
+      </div>
+    </section>
+    <aside class="radar-panel" aria-label="Экран обзорного радара">
+      <div class="panel-heading"><span>RADAR / SECTOR 01</span><span id="radar-status">SCANNING</span></div>
+      <div class="radar-wrap">
+        <canvas id="radar" width="320" height="320" aria-label="Радар с визуальными отметками обнаруженных целей"></canvas>
+        <div class="radar-center">N</div>
+      </div>
+      <div class="radar-footer"><span>SWEEP ACTIVE</span><span id="radar-count">00 CONTACTS</span></div>
+      <div class="activity-label">ЖУРНАЛ СОБЫТИЙ</div>
+      <div class="log" id="activity-log" aria-live="polite"></div>
+    </aside>
+  </main>
+  <footer class="controlbar">
+    <div class="view-label">
+      <span class="view-icon">◈</span>
+      <div><b>CAM 01 / OBSERVATION TOWER</b><small>3D PERSPECTIVE • LIVE ENVIRONMENT</small></div>
+    </div>
+    <div class="controls">
+      <button type="button" id="demo-button" class="primary">▶ ТЕСТ ПЕРЕХВАТА</button>
+      <button type="button" id="clear-button">СБРОС</button>
+      <button type="button" id="siren-button" aria-pressed="false">♫ СИРЕНА: ВЫКЛ</button>
+      <button type="button" id="fullscreen-button" title="На весь экран (F)">⛶ НА ВЕСЬ ЭКРАН</button>
+    </div>
+  </footer>
+  <div class="hint">СИМУЛЯЦИЯ • НЕ РЕАЛЬНЫЙ РАДАР</div>
+  <div id="webgl-error" class="error" hidden>Не удалось запустить WebGL. Попробуйте актуальную версию Chrome или Safari.</div>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

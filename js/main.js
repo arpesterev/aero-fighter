@@ -1,58 +1,81 @@
-// ---------------------------------------------------------------------------
-// Entry point: wire up the canvases, the Game instance and the rAF loop.
-//
-// The loop is requestAnimationFrame-driven, so on a 120 Hz display it runs at
-// 120 fps as long as a frame fits the ~8.3 ms budget (the simulation is
-// dt-based, so game speed is identical at any refresh rate). A small quality
-// governor watches sustained frame times and steps the render resolution
-// down once if the GPU can't keep up — full-screen bloom at devicePixelRatio
-// 2 is by far the dominant cost.
-// ---------------------------------------------------------------------------
+import { World } from './world.js';
+import { Radar } from './radar.js';
+import { SceneController } from './controller.js';
+import { Siren } from './audio.js';
+import { daylightState } from './daylight.js';
 
-import { Game } from './game.js';
-import { Renderer } from './renderer3d.js';
+const el=id=>document.getElementById(id);
+let world;
+try{world=new World(el('world'));}catch(err){console.error('WebGL failed',err);el('webgl-error').hidden=false;throw err;}
+const radar=new Radar(el('radar'));
+const controller=new SceneController(world,el('activity-log'));
+const siren=new Siren();
+let lastEventId=null;
+let connected=false;
 
-const sceneCanvas = document.getElementById('scene');
-const hudCanvas = document.getElementById('hud');
-const renderer = new Renderer(sceneCanvas);
-const game = new Game(hudCanvas, renderer);
-
-// Expose for debugging in the console.
-window.game = game;
-
-let last = performance.now();
-
-// Quality governor state: exponential moving average of the frame interval.
-let emaDt = 8;
-let slowSince = 0;
-let qualityStepped = false;
-
-function frame(now) {
-  const rawDt = now - last;
-  last = now;
-  let dt = rawDt / 1000;
-  if (dt > 0.05) dt = 0.05; // clamp tab-switch / GC pauses
-
-  game.update(dt);
-  game.render();
-
-  // Governor: if frames sit above ~13 ms (under ~75 fps) for 3 s straight on
-  // a high-density screen, drop the pixel ratio once (2 -> 1.5). One-way —
-  // no oscillating back and forth.
-  if (!qualityStepped && rawDt < 250) {
-    emaDt = emaDt * 0.95 + rawDt * 0.05;
-    if (emaDt > 13) {
-      if (!slowSince) slowSince = now;
-      if (now - slowSince > 3000 && (window.devicePixelRatio || 1) > 1.5) {
-        qualityStepped = true;
-        renderer.setPixelRatio(1.5);
-      }
-    } else {
-      slowSince = 0;
-    }
-  }
-
-  requestAnimationFrame(frame);
+async function publish(input){
+  try{
+    const r=await fetch('/api/event',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  }catch(err){controller.note('API недоступен. Локальная демонстрация',true);handleEvent(input);}
 }
+function handleEvent(event){
+  if(event.id!==undefined){if(lastEventId===event.id)return;lastEventId=event.id;}
+  try{
+    const valid=controller.trigger(event);
+    if(valid.siren)siren.play();
+  }catch(error){controller.note('Неизвестное событие отклонено',true);console.warn(error);}
+}
+const stream=new EventSource('/api/events');
+stream.onopen=()=>{connected=true;controller.note('Связь с локальным API установлена');};
+stream.onmessage=evt=>{try{handleEvent(JSON.parse(evt.data));}catch(error){console.warn('Bad event',error);}};
+stream.onerror=()=>{connected=false;};
 
-requestAnimationFrame(frame);
+el('demo-button').addEventListener('click',()=>publish({type:'incoming',count:3,severity:2,siren:true}));
+el('clear-button').addEventListener('click',()=>publish({type:'clear'}));
+el('siren-button').addEventListener('click',async()=>{
+  const enabled=await siren.setEnabled(!siren.enabled);
+  el('siren-button').setAttribute('aria-pressed',String(enabled));
+  el('siren-button').textContent=enabled?'♫ СИРЕНА: ВКЛ':'♫ СИРЕНА: ВЫКЛ';
+  controller.note(enabled?'Сирена включена по согласию пользователя':'Сирена выключена');
+});
+function toggleFullscreen(){
+  if(document.fullscreenElement){document.exitFullscreen?.();return;}
+  document.documentElement.requestFullscreen?.().catch(()=>controller.note('Полноэкранный режим недоступен'));
+}
+el('fullscreen-button').addEventListener('click',toggleFullscreen);
+window.addEventListener('keydown',e=>{
+  if(e.repeat||e.metaKey||e.ctrlKey||e.altKey)return;
+  const target=e.target;
+  if(target instanceof HTMLElement && ['INPUT','TEXTAREA'].includes(target.tagName))return;
+  switch(e.key.toLowerCase()){
+    case 't':publish({type:'incoming',count:3,severity:2,siren:true});break;
+    case 'c':publish({type:'clear'});break;
+    case 'f':toggleFullscreen();break;
+  }
+});
+
+let previous=performance.now(),hudElapsed=0;
+function tick(now){
+  const dt=Math.min(.05,Math.max(0,(now-previous)/1000));previous=now;
+  controller.update(dt);world.update(dt,controller.phase);radar.draw(dt,world.threats,now);
+  hudElapsed+=dt;
+  if(hudElapsed>.2){hudElapsed=0;refreshHUD();}
+  requestAnimationFrame(tick);
+}
+function refreshHUD(){
+  const state=controller.getStatus();
+  el('scene-title').textContent=state.title;
+  el('scene-description').textContent=state.description;
+  el('state-title').textContent=state.top;
+  el('phase-value').textContent=state.state;
+  el('threat-count').textContent=String(state.contacts).padStart(2,'0');
+  el('radar-count').textContent=`${String(state.contacts).padStart(2,'0')} CONTACTS`;
+  el('radar-status').textContent=state.contacts?'TRACKING':'SCANNING';
+  el('connection-value').textContent=connected?'ONLINE':'OFFLINE';
+  el('time-value').textContent=daylightState().label;
+  el('clock').textContent=new Date().toLocaleTimeString('ru-RU',{hour12:false});
+  document.body.classList.toggle('combat',controller.phase==='alert'||controller.phase==='engaging');
+  el('signal').classList.toggle('warning',controller.phase==='alert'||controller.phase==='engaging');
+}
+refreshHUD();requestAnimationFrame(tick);

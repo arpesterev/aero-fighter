@@ -1,11 +1,9 @@
 {
-  "name": "ciws-command",
+  "name": "aero-fighter",
   "version": "0.1.0",
-  "description": "A Missile Command-style game defended with CIWS guns and interceptors.",
+  "description": "Cinematic 3D watchtower and air-defense visualization driven by local HTTP events",
   "type": "module",
   "private": true,
-  "scripts": {
-    "test": "bun test",
-    "serve": "python3 serve.py 8011"
-  }
+  "engines": {"node": ">=20"},
+  "scripts": {"start": "node server.js", "test": "node --test", "check": "node --check server.js && node --check js/main.js && node --check js/world.js && node --check js/controller.js && node --check js/radar.js"}
 }

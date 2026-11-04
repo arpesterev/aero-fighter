@@ -1,4 +1,5 @@
 .DS_Store
 node_modules/
-# Local editor / assistant configuration (machine-specific paths)
-.claude/
+.env
+*.log
+coverage/
