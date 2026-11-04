@@ -87,7 +87,7 @@ status() {
   fi
   if [[ -d "$ENGINE/samples/dngSceneViewer/viewer" ]]; then
     echo "East District sample game directory found:"
-    find "$ENGINE/samples/dngSceneViewer/viewer" -maxdepth 7 -type d -name 'DngSceneViewer-*.app' -print | head -12 || true
+    find "$ENGINE/samples/dngSceneViewer/viewer" -type d -name 'DngSceneViewer-*.app' -print | head -12 || true
   else
     echo "East District sample not installed. Optional: bash scripts/dagor-macos.sh viewer"
   fi
@@ -110,7 +110,7 @@ case "${1:-help}" in
     ;;
   open)
     require_macos
-    app="$(find "$ENGINE/samples/dngSceneViewer/viewer" -maxdepth 9 -type d -name 'DngSceneViewer-*.app' -print -quit 2>/dev/null || true)"
+    app="$(find "$ENGINE/samples/dngSceneViewer/viewer" -type d -name 'DngSceneViewer-*.app' -print | head -n 1 2>/dev/null || true)"
     [[ -n "$app" ]] || { echo "No macOS viewer app found. Run: bash scripts/dagor-macos.sh viewer" >&2; exit 1; }
     echo "Opening official demo: $app"
     open "$app"
