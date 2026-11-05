@@ -14,7 +14,7 @@ Dagor's documented `samples/skiesSample` is used as the native host because it a
 
 The patch is idempotent and fails if the expected upstream code structure changes. It **modifies the working copy of the pinned Git submodule**, leaving the commit itself untouched. The original `test_app.cpp` is backed up as `test_app.aero-original.cpp.txt`.
 
-The current renderer deliberately uses simple shapes and glowing tracer lines in **3D perspective**. It is an early lighting/composition prototype, not finished photorealistic materials, VFX, or models. The native macOS build and GPU output have not been independently verified in this environment.
+Native VFX vertical slice: the renderer now creates a parametric 3D base, rotating visual radar, detailed gun mount silhouettes, dual barrels, layered tracer ribbons, travelling hot tracer tips, short muzzle flashes, ground-light approximations, radial airbursts, sparks and multiple camera-facing semitransparent smoke layers. This is substantial original visual geometry, but not photorealistic textured assets, true volumetric smoke, physically simulated lighting, or native post-process HDR bloom. The native macOS build and GPU output have not been independently verified in this environment.
 
 ## Download sources and build
 
@@ -48,3 +48,9 @@ The small tests cover indefinite engagement, external clear semantics, idempoten
 ## Remaining visual development
 
 After a real Dagor build is running, replace the diagnostic geometry with purpose-built atmospheric base models, custom emissive materials, muzzle flashes with light spill, smoke and accurate camera/monitor framing. Add a small native radar UI and optional, volume-limited siren only after opt-in. Keep the strict external-clear contract throughout.
+
+## GPU and visual quality follow-up
+
+The cached Dagor debug 3D API is used intentionally as the **first native triangle renderer**. Effects have limited transparency and multiple geometry-based glow layers. The next visual pass must move the glow/smoke to dedicated Dagor shader materials and the sample's actual post-processing graph, replace procedural vehicle silhouettes with licensed original meshes and run on a physical Apple Silicon / Intel Mac. A CPU-only unit test cannot establish photorealistic quality.
+
+Each effect has an upper bound in the C++ scene (760 tracers, 340 sparks, 260 smoke puffs, 85 flashes, 28 airbursts), and the animation model is tested for 15 minutes of simulated continuous heavy activity and for explicit-clear-only transitions.

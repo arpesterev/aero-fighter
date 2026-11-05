@@ -14,6 +14,10 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -pedantic -Werror -O2 tests/test_scene.cpp -o /tmp/aero-scene-tests
           /tmp/aero-scene-tests
+      - name: Compile native Dagor adapter against public API stubs
+        run: |
+          c++ -std=c++17 -Wall -Wextra -pedantic -Werror -O2 -Itests/stubs -Inative/include tests/test_render_stub.cpp -o /tmp/aero-render-stub
+          /tmp/aero-render-stub
       - name: Syntax checks for Mac build scripts and Python
         run: |
           bash -n scripts/build-macos.sh scripts/run-macos.sh scripts/dagor-macos.sh
